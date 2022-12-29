@@ -1,0 +1,3 @@
+[submodule "MOOSE"]
+	path = MOOSE
+	url = https://github.com/FlightControl-Master/MOOSE
