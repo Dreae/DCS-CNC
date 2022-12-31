@@ -2,6 +2,7 @@ local capabilities = require("command.capabilities")
 local warehouse = require("command.warehouse")
 local taskable = require("command.taskable")
 local squadron = require("command.squadron")
+local ai_action= require("ai.ai_action")
 
 ---@class airwing : taskable
 ---@field airbase any
@@ -48,21 +49,45 @@ function airwing:get_capable_squadron(capability)
     return squads[math.random(#squads)]
 end
 
-function airwing:start_CAP(CAP_zone)
-    self:add_task(function()
-        local squad = self:get_capable_squadron(capabilities.CAP)
-
-        local spawned_group = squad:get_spawn(capabilities.CAP):SpawnAtAirbase(self.airbase, SPAWN.Takeoff.Hot, nil, nil, false)
-        if spawned_group == nil then
-            return taskable.task_result.Retry
-        else
-            local tasks = {}
-            local CAP_coord = COORDINATE:NewFromVec2(CAP_zone:GetVec2())
-            table.insert(tasks, CONTROLLABLE.EnRouteTaskEngageTargetsInZone(nil, CAP_zone:GetVec2(), 120000))
-            table.insert(tasks, CONTROLLABLE.TaskOrbit(nil, CAP_coord, 7500, UTILS.KnotsToMps(350)))
-            spawned_group:SetTask(CONTROLLABLE.TaskCombo(nil, tasks), 1)
-            return taskable.task_result.Done
+---@param required_capabilities capabilities[]
+function airwing:has_available_assets(required_capabilities)
+    for _, squad in pairs(self.squadrons) do
+        local capable = true
+        for _, required_capability in ipairs(required_capabilities) do
+            if not squad:is_capable(required_capability) then
+                capable = false
+            end
         end
+        if capable then
+            return true
+        end
+    end
+end
+
+---@param task_plan task_plan
+---TODO: Refactor
+function airwing:add_task_plan(task_plan)
+    self:add_task(function()
+        local spawns = task_plan._partial_spawn or {}
+        for _, required_capability in pairs(task_plan.required_assets[ai_action.asset_class.Air]) do
+            if not spawns[required_capability] then
+                local squad = self:get_capable_squadron(required_capability)
+
+                local spawned_group = squad:get_spawn(required_capability):SpawnAtAirbase(self.airbase)
+
+                if spawned_group ~= nil then
+                    spawns[required_capability] = spawned_group
+                else
+                    task_plan._partial_spawn = spawns
+                    return taskable.task_result.Retry
+                end
+            end
+        end
+        task_plan:task_assets(self.taccom, ai_action.asset_class.Air, spawns)
+        for _, group in pairs(spawns) do
+            group:SetAIOn()
+        end
+        return taskable.task_result.Done
     end)
 end
 

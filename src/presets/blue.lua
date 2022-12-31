@@ -76,7 +76,8 @@ local airframe_e3 = {
         [capabilities.HAAWACS] = 100
     },
     loadouts = {
-        [capabilities.AWACS] = "E-3A AWACS"
+        [capabilities.AWACS] = "E-3A AWACS",
+        [capabilities.HAAWACS] = "E-3A AWACS"
     }
 }
 
@@ -146,6 +147,10 @@ return {
                         count = 12,
                         livery = "VF-103 Jolly Rogers Hi Viz"
                     },
+                    {
+                        airframe = airframe_e2,
+                        count = 4
+                    }
                 }
             }
         }
@@ -162,6 +167,10 @@ return {
                         airframe = airframe_f15c,
                         count= 16,
                         livery = "12th Fighter SQN (AK)"
+                    },
+                    {
+                        airframe = airframe_e3,
+                        count = 4
                     }
                 }
             }

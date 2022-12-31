@@ -1,6 +1,6 @@
 local settings = require("presets.init")
 local airwing = require("command.airwing")
-local capabilities = require("command.capabilities")
+local ai_action    = require("ai.ai_action")
 
 ---@class taccom
 ---@field team number
@@ -9,6 +9,8 @@ local capabilities = require("command.capabilities")
 ---@field airbosses any[]
 ---@field callsigns string[]
 ---@field assets_on_station table<capabilities, table>
+---@field action_tokens number
+---@field utility_threshold number
 local taccom = {}
 
 ---Create new taccom instance
@@ -23,6 +25,8 @@ function taccom:new(team, navmesh)
     o.airbosses = {}
     o.navmesh = navmesh
     o.action_tokens = 32
+    o.assets_on_station = {}
+    o.utility_threshold = 0.25
     return o
 end
 
@@ -67,33 +71,80 @@ function taccom:release_callsign(callsign)
     table.insert(self.callsigns, callsign, math.random(#self.callsigns))
 end
 
+function taccom:remove_dead_assets()
+    for capability, assets in pairs(self.assets_on_station) do
+        local alive_assets = {}
+        for _, group in ipairs(assets) do
+            if group:IsAlive() then
+                table.insert(alive_assets, group)
+            end
+        end
+
+        self.assets_on_station[capability] = alive_assets
+    end
+end
+
 ---@type ai_action[]
 local actions = {
     require("ai.launch_awacs")
+    --require("ai.wait_for_ap")
 }
 function taccom:think()
-    ---@type {[number]: number|ai_action}[]
+    self:remove_dead_assets()
+
+    ---@type ai_action|number[]
     local action_utilities = {}
     for _, action in ipairs(actions) do
-        table.insert(action_utilities, {action, action.utility_function(self)})
+        if self.action_tokens > action.ap_cost then
+            table.insert(action_utilities, {action, action:utility(self)})
+        end
     end
     table.sort(action_utilities, function (a, b) return a[2] < b[2] end)
+    local utility = action_utilities[1][2]
+    if utility < self.utility_threshold then return end
 
-    for _, action_utility in ipairs(action_utilities) do
-        local action = action_utility[1]
-        local required_assets = action.required_assets(self)
-        for asset_class, required_capability in pairs(required_assets) do
-            if type(required_capability) == "function" then
-
-            else
-
-            end
-        end
+    local action = action_utilities[1][1]
+    local task_plan = action.task_plan(self)
+    local taskables = self:available_assets(task_plan.required_assets)
+    if taskables == nil then
+    else
+        --TODO: Sort by suitability for task (distance, airframe performance, etc.)
+        local taskable = taskables[1]
+        taskable:add_task_plan(task_plan)
     end
 end
 
 function taccom:get_assets_on_station(capability)
     return self.assets_on_station[capability] or {}
+end
+
+function taccom:add_asset_on_station(group, capability)
+    if self.assets_on_station[capability] == nil then
+        self.assets_on_station[capability] = {group}
+    else
+        table.insert(self.assets_on_station[capability], group)
+    end
+end
+
+---@param required_assets required_assets
+---@return taskable[]?
+function taccom:available_assets(required_assets)
+    local taskables = {}
+    for asset_class, required_capabilities in pairs(required_assets) do
+        if asset_class == ai_action.asset_class.Air then
+            for _, wing in pairs(self.airwings) do
+                if wing:has_available_assets(required_capabilities) then
+                    table.insert(taskables, wing)
+                end
+            end
+        elseif asset_class == ai_action.asset_class.Land then
+            return nil
+        elseif asset_class == ai_action.asset_class.Ship then
+            return nil
+        end
+    end
+
+    return taskables
 end
 
 return taccom

@@ -1,3 +1,5 @@
+local util = require("util.init")
+
 ---@class navmesh
 ---@field airbases table<string, any>
 local navmesh = {}
@@ -58,22 +60,24 @@ function navmesh:get_control_zones(airbase_name)
 end
 
 ---@param team ?number
+---@return point
 function navmesh:get_midpoint(team)
     if team ~= nil then
         local avg_x, avg_y = 0.0, 0.0
-        local airbases = AIRBASE.GetAllAirbases(coalition.side.RED)
+        local airbases = AIRBASE.GetAllAirbases(team, Airbase.Category.AIRDROME)
         for _, airbase in pairs(airbases) do
             avg_x = avg_x + airbase:GetVec2().x
             avg_y = avg_y + airbase:GetVec2().y
         end
         avg_x = avg_x / #airbases
+        avg_y = avg_y / #airbases
 
-        return {x = avg_x, y = avg_y}
+        return util.point:new(avg_x, avg_y)
     end
     local blue_midpoint = self:get_midpoint(coalition.side.BLUE)
     local red_midpoint = self:get_midpoint(coalition.side.RED)
 
-    return {x = (blue_midpoint.x + red_midpoint.x) / 2, y = (blue_midpoint.y + red_midpoint.y) / 2}
+    return util.point:new((blue_midpoint.x + red_midpoint.x) / 2, (blue_midpoint.y + red_midpoint.y) / 2)
 end
 
 return navmesh

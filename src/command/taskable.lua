@@ -1,11 +1,10 @@
 ---@alias task fun(): task_result
 
 ---@class taskable
----@field task_queue table<number, task>
+---@field task_queue task[]
 ---@field timer any
 ---@field add_task fun(self: taskable, task: task)
-
-
+---@field add_task_plan fun(self: taskable, task_plan: task_plan)
 local taskable = {}
 
 ---@enum task_result
@@ -47,6 +46,10 @@ function taskable:run_queue()
             self:add_task(task)
         end
     end
+end
+
+function taskable:add_task_plan(task_plan)
+    env.error("Unimplemented")
 end
 
 return taskable

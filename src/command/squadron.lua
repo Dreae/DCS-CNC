@@ -15,6 +15,7 @@ function squadron:new(team, callsign, airframe)
     o.loadouts = {}
     for capability, loadout in pairs(airframe.loadouts) do
         local spawn = SPAWN:NewWithAlias(loadout, callsign)
+        spawn:InitAIOff()
         spawn:InitCoalition(team)
         if team == coalition.side.BLUE then
             spawn:InitCountry(country.id.USA)
